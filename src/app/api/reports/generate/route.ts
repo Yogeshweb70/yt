@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 299;
+export const maxDuration = 10;
 
 /** Generates a report. Body: { period?: "daily"|"weekly"|"monthly" }. */
 export async function POST(req: NextRequest) {

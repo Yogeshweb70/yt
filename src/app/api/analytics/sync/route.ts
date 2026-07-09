@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 299;
+export const maxDuration = 10;
 
 /** Daily analytics sync worker. Protected by WORKER_SHARED_SECRET (cron). */
 export async function POST(req: NextRequest) {

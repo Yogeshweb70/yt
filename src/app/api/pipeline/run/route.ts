@@ -3,7 +3,7 @@ import { runPipeline } from "@/services/pipeline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 299;
+export const maxDuration = 10;
 
 /**
  * Triggers the Phase 2 content pipeline. Protected by WORKER_SHARED_SECRET
