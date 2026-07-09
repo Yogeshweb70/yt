@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 800;
+export const maxDuration = 300;
 
 /**
  * Drains ready jobs. Called repeatedly by a scheduler (cron / worker loop).
