@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 299;
 
 /**
  * Renders a video from an existing Asset Manifest.
