@@ -1,0 +1,42 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 800;
+
+/**
+ * Full autopilot for one manifest: render + upload to YouTube.
+ * Body: { manifestId: string, privacy?, publishAt?, playlistId? }.
+ * Protected by WORKER_SHARED_SECRET. Runs on the worker container.
+ */
+export async function POST(req: NextRequest) {
+  const secret = process.env.WORKER_SHARED_SECRET;
+  if (secret && req.headers.get("x-worker-secret") !== secret) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  let body: { manifestId?: string; privacy?: "public" | "private" | "unlisted"; publishAt?: string; playlistId?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    /* no body */
+  }
+  if (!body.manifestId) {
+    return NextResponse.json({ error: "manifestId required" }, { status: 400 });
+  }
+
+  try {
+    const { runManifestToYouTube } = await import("@/services/autopilot");
+    const result = await runManifestToYouTube(body.manifestId, {
+      privacy: body.privacy,
+      publishAt: body.publishAt,
+      playlistId: body.playlistId,
+    });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "unknown" },
+      { status: 500 },
+    );
+  }
+}
