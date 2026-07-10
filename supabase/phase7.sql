@@ -17,6 +17,7 @@ create table if not exists public.queue_jobs (
   locked_by       text,
   locked_at       timestamptz,
   progress        int not null default 0,
+  stage           text,                             -- live sub-step label for the UI
   timeout_ms      int,
   idempotency_key text unique,
   channel_id      text,                             -- multi-channel ready (nullable)

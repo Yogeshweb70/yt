@@ -117,7 +117,8 @@ export async function complete(id: string, result: unknown): Promise<void> {
       locked_at: null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "running"); // don't resurrect a job cancelled mid-run
 }
 
 /** Records failure; retries with backoff or moves to the dead-letter queue. */
@@ -135,16 +136,38 @@ export async function fail(job: JobRow, message: string): Promise<void> {
       locked_at: null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", job.id);
+    .eq("id", job.id)
+    .eq("status", "running"); // a job cancelled mid-run must not be retried
   if (dead) await log.error("queue", `job ${job.id} (${job.type}) dead-lettered`, { message });
 }
 
-export async function cancel(id: string): Promise<void> {
-  await supabaseAdmin().from("queue_jobs").update({ status: "cancelled" }).eq("id", id);
+/** Cancel one job. Only affects still-active jobs (pending/running); a job
+ *  already running in a worker finishes its current handler, but is marked so
+ *  it won't retry and its dependents stay blocked. Returns rows affected. */
+export async function cancel(id: string): Promise<number> {
+  const { data } = await supabaseAdmin()
+    .from("queue_jobs")
+    .update({ status: "cancelled", locked_at: null, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .in("status", ["pending", "running"])
+    .select("id");
+  return (data as { id: string }[] | null)?.length ?? 0;
 }
 
-export async function setProgress(id: string, pct: number): Promise<void> {
-  await supabaseAdmin().from("queue_jobs").update({ progress: pct }).eq("id", id);
+/** Cancel every active job (pending + running) in one shot. Returns the count. */
+export async function cancelAllActive(): Promise<number> {
+  const { data } = await supabaseAdmin()
+    .from("queue_jobs")
+    .update({ status: "cancelled", locked_at: null, updated_at: new Date().toISOString() })
+    .in("status", ["pending", "running"])
+    .select("id");
+  return (data as { id: string }[] | null)?.length ?? 0;
+}
+
+export async function setProgress(id: string, pct: number, stage?: string): Promise<void> {
+  const patch: { progress: number; stage?: string } = { progress: pct };
+  if (stage !== undefined) patch.stage = stage;
+  await supabaseAdmin().from("queue_jobs").update(patch).eq("id", id);
 }
 
 export type { JobRow };

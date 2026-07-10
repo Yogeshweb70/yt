@@ -50,7 +50,7 @@ export async function runTick(
     try {
       const ctx = {
         jobId: job.id,
-        reportProgress: (pct: number) => setProgress(job.id, pct),
+        reportProgress: (pct: number, stage?: string) => setProgress(job.id, pct, stage),
       };
       const result = await withSpan(`job:${job.type}`, () =>
         withTimeout(handler(job.payload ?? {}, ctx), job.timeout_ms),

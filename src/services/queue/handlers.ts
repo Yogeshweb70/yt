@@ -11,7 +11,7 @@ import { snapshotHealth } from "@/services/systemHealth";
  *  the 0–100 % into `queue_jobs.progress` so the dashboard can render live steps. */
 export interface JobContext {
   jobId: string;
-  reportProgress: (pct: number) => Promise<void>;
+  reportProgress: (pct: number, stage?: string) => Promise<void>;
 }
 
 type Handler = (payload: Record<string, unknown>, ctx: JobContext) => Promise<unknown>;
@@ -43,9 +43,11 @@ export const HANDLERS: Record<string, Handler> = {
     const dayStamp = String(p.dayStamp ?? new Date().toISOString().slice(0, 10));
     // On-demand ("publish now") runs skip slot scheduling and publish immediately.
     const immediate = p.immediate === true;
-    await ctx.reportProgress(5);
-    const result = await runPipeline(dayStamp);
-    await ctx.reportProgress(100);
+    await ctx.reportProgress(5, "Topic");
+    const result = await runPipeline(dayStamp, (pct, stage) =>
+      ctx.reportProgress(pct, stage),
+    );
+    await ctx.reportProgress(100, "Done");
     // Assign each of the day's videos to a distinct publish slot (UTC).
     for (const [i, m] of result.manifests.entries()) {
       const slot = PUBLISH_SLOTS_UTC[i];

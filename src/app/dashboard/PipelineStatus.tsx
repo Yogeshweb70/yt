@@ -7,6 +7,7 @@ interface PipelineJob {
   type: string;
   status: string;
   progress: number;
+  stage: string | null;
   attempts: number;
   error: string | null;
   updatedAt: string;
@@ -14,7 +15,7 @@ interface PipelineJob {
 
 /** Human label for each job type, shown as the pipeline step name. */
 const STEP_LABEL: Record<string, string> = {
-  content: "1 · Script & assets — topic → script → voice → manifest",
+  content: "1 · Script & assets",
   autopilot: "2 · Render → optimize → publish",
   analytics: "Analytics sync",
   report: "Daily report",
@@ -56,6 +57,7 @@ function Bar({ pct, status }: { pct: number; status: string }) {
 export function PipelineStatus() {
   const [jobs, setJobs] = useState<PipelineJob[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null); // job id or "all" being cancelled
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -70,6 +72,25 @@ export function PipelineStatus() {
     }
   }, []);
 
+  const cancelJob = useCallback(
+    async (body: { id: string } | { all: true }, key: string) => {
+      setBusy(key);
+      try {
+        await fetch("/api/queue/cancel", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        await refresh();
+      } catch {
+        /* refresh on the next poll */
+      } finally {
+        setBusy(null);
+      }
+    },
+    [refresh],
+  );
+
   useEffect(() => {
     refresh();
     timer.current = setInterval(refresh, 3000);
@@ -82,11 +103,23 @@ export function PipelineStatus() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 text-xs text-muted">
-        <span
-          className={`inline-block h-2 w-2 rounded-full ${active ? "bg-blue-400 animate-pulse" : "bg-white/20"}`}
-        />
-        {active ? "Processing — live" : "Idle"} · refreshes every 3s
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs text-muted">
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${active ? "bg-blue-400 animate-pulse" : "bg-white/20"}`}
+          />
+          {active ? "Processing — live" : "Idle"} · refreshes every 3s
+        </div>
+        {active && (
+          <button
+            type="button"
+            onClick={() => cancelJob({ all: true }, "all")}
+            disabled={busy !== null}
+            className="rounded-md border border-red-500/40 px-2.5 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+          >
+            {busy === "all" ? "Stopping…" : "Stop all"}
+          </button>
+        )}
       </div>
 
       {!loaded ? (
@@ -103,14 +136,39 @@ export function PipelineStatus() {
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="text-sm text-foreground">
                   {STEP_LABEL[j.type] ?? j.type}
+                  {/* Only the currently-running sub-step is shown, not the full chain. */}
+                  {j.status === "running" && j.stage && j.stage !== "Done" && (
+                    <span className="ml-2 text-muted">› {j.stage}</span>
+                  )}
                 </span>
-                <span
-                  className={`rounded px-2 py-0.5 text-xs ${STATUS_STYLE[j.status] ?? "bg-white/10 text-muted"}`}
-                >
-                  {j.status}
-                  {j.status === "running" ? ` · ${j.progress}%` : ""}
-                  {j.attempts > 1 ? ` · try ${j.attempts}` : ""}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs ${STATUS_STYLE[j.status] ?? "bg-white/10 text-muted"}`}
+                  >
+                    {j.status}
+                    {j.status === "running" ? ` · ${j.progress}%` : ""}
+                    {j.attempts > 1 ? ` · try ${j.attempts}` : ""}
+                  </span>
+                  {(j.status === "running" || j.status === "pending") && (
+                    <button
+                      type="button"
+                      onClick={() => cancelJob({ id: j.id }, j.id)}
+                      disabled={busy !== null}
+                      title={
+                        j.status === "running"
+                          ? "Stops retries and blocks the next steps; the current step finishes."
+                          : "Cancel this queued job."
+                      }
+                      className="rounded-md border border-white/15 px-2 py-0.5 text-xs text-muted hover:bg-white/10 disabled:opacity-50"
+                    >
+                      {busy === j.id
+                        ? "Cancelling…"
+                        : j.status === "running"
+                          ? "Stop"
+                          : "Cancel"}
+                    </button>
+                  )}
+                </div>
               </div>
               <Bar pct={j.progress} status={j.status} />
               {j.error && (

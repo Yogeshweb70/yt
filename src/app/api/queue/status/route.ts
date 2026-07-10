@@ -13,7 +13,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin()
       .from("queue_jobs")
-      .select("id, type, status, progress, attempts, error, updated_at")
+      .select("id, type, status, progress, stage, attempts, error, updated_at")
       .order("updated_at", { ascending: false })
       .limit(20);
     if (error) throw error;
@@ -22,6 +22,7 @@ export async function GET() {
       type: String(j.type),
       status: String(j.status),
       progress: Number(j.progress ?? 0),
+      stage: (j.stage as string | null) ?? null,
       attempts: Number(j.attempts ?? 0),
       error: (j.error as string | null) ?? null,
       updatedAt: String(j.updated_at),
