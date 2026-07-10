@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getConnection } from "@/lib/youtube/connection";
 import type { YoutubeConnection } from "@/lib/supabase/types";
 import { TriggerButton } from "./TriggerButton";
@@ -48,21 +47,21 @@ export default async function Dashboard({
               {conn.channel_title ?? conn.channel_id ?? "unknown channel"}
             </span>
             . Tokens auto-refresh.{" "}
-            <Link href="/api/auth/google" className="text-primary underline">
+            <a href="/api/auth/google" className="text-primary underline">
               Reconnect
-            </Link>
+            </a>
           </p>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted">
               No channel connected. This is the one-time OAuth step.
             </p>
-            <Link
+            <a
               href="/api/auth/google"
               className="inline-flex w-fit rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
             >
               Connect YouTube channel
-            </Link>
+            </a>
           </div>
         )}
         {connect === "ok" && (
