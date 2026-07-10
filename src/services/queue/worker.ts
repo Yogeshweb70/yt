@@ -1,5 +1,5 @@
 import "server-only";
-import { claimNext, complete, fail, type JobRow } from "@/services/queue/queue";
+import { claimNext, complete, fail, setProgress, type JobRow } from "@/services/queue/queue";
 import { HANDLERS } from "@/services/queue/handlers";
 import { emitEvent, type WebhookEvent } from "@/services/webhooks";
 import { withSpan } from "@/lib/trace";
@@ -48,8 +48,12 @@ export async function runTick(
     }
 
     try {
+      const ctx = {
+        jobId: job.id,
+        reportProgress: (pct: number) => setProgress(job.id, pct),
+      };
       const result = await withSpan(`job:${job.type}`, () =>
-        withTimeout(handler(job.payload ?? {}), job.timeout_ms),
+        withTimeout(handler(job.payload ?? {}, ctx), job.timeout_ms),
       );
       await complete(job.id, result);
       processed++;

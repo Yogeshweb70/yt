@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getConnection } from "@/lib/youtube/connection";
 import type { YoutubeConnection } from "@/lib/supabase/types";
 import { TriggerButton } from "./TriggerButton";
+import { PipelineStatus } from "./PipelineStatus";
 
 // Reads live connection state — must not be statically prerendered.
 export const dynamic = "force-dynamic";
@@ -81,6 +82,11 @@ export default async function Dashboard({
           nothing else pauses.
         </p>
         <TriggerButton />
+      </section>
+
+      <section className="mb-8 rounded-xl border border-white/10 p-5">
+        <h2 className="mb-3 text-lg font-semibold">Pipeline progress</h2>
+        <PipelineStatus />
       </section>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -1,27 +1,32 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { triggerVideoNow } from "./actions";
+import { useState } from "react";
 
 /**
- * "Publish a video now" button. Enqueues an on-demand content run via a server
- * action and surfaces the resulting job id (or error). The scheduled pipeline
- * keeps running independently — this just adds one extra job to the queue.
+ * "Publish a video now" button. Enqueues an on-demand content run via the
+ * /api/pipeline/trigger route and surfaces the resulting job id (or error).
+ * The scheduled pipeline keeps running independently — this just adds one job.
  */
 export function TriggerButton() {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  function onClick() {
+  async function onClick() {
+    setPending(true);
     setMsg(null);
-    startTransition(async () => {
-      const res = await triggerVideoNow();
+    try {
+      const res = await fetch("/api/pipeline/trigger", { method: "POST" });
+      const data = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
       setMsg(
-        res.ok
-          ? { ok: true, text: `Queued ✓ — job ${res.jobId?.slice(0, 8)}. A worker will render & publish it.` }
-          : { ok: false, text: `Failed: ${res.error}` },
+        data.ok
+          ? { ok: true, text: `Queued ✓ — job ${data.jobId?.slice(0, 8)}. A worker will render & publish it.` }
+          : { ok: false, text: `Failed: ${data.error}` },
       );
-    });
+    } catch (e) {
+      setMsg({ ok: false, text: `Failed: ${e instanceof Error ? e.message : "network error"}` });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

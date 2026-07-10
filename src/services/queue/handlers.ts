@@ -7,7 +7,14 @@ import { runLearning, generateRecommendations } from "@/services/analytics/insig
 import { generateReport, type Period } from "@/services/analytics/report";
 import { snapshotHealth } from "@/services/systemHealth";
 
-type Handler = (payload: Record<string, unknown>) => Promise<unknown>;
+/** Per-job context the worker passes to each handler. `reportProgress` writes
+ *  the 0–100 % into `queue_jobs.progress` so the dashboard can render live steps. */
+export interface JobContext {
+  jobId: string;
+  reportProgress: (pct: number) => Promise<void>;
+}
+
+type Handler = (payload: Record<string, unknown>, ctx: JobContext) => Promise<unknown>;
 
 /**
  * Daily publish slots (UTC). The N-th video of the day is scheduled at the
@@ -32,11 +39,13 @@ function slotPublishAt(dayStamp: string, slot: string): string {
  */
 export const HANDLERS: Record<string, Handler> = {
   // Content: discover→rank→…→manifests, then fan out one autopilot job per manifest.
-  content: async (p) => {
+  content: async (p, ctx) => {
     const dayStamp = String(p.dayStamp ?? new Date().toISOString().slice(0, 10));
     // On-demand ("publish now") runs skip slot scheduling and publish immediately.
     const immediate = p.immediate === true;
+    await ctx.reportProgress(5);
     const result = await runPipeline(dayStamp);
+    await ctx.reportProgress(100);
     // Assign each of the day's videos to a distinct publish slot (UTC).
     for (const [i, m] of result.manifests.entries()) {
       const slot = PUBLISH_SLOTS_UTC[i];
@@ -51,10 +60,12 @@ export const HANDLERS: Record<string, Handler> = {
   },
 
   // Render → optimize → publish (heavy: run on the ffmpeg/chromium worker).
-  autopilot: (p) =>
-    runManifestToYouTube(String(p.manifestId), {
-      publishAt: (p.publishAt as string | null) ?? undefined,
-    }),
+  autopilot: (p, ctx) =>
+    runManifestToYouTube(
+      String(p.manifestId),
+      { publishAt: (p.publishAt as string | null) ?? undefined },
+      { onStage: (_stage, pct) => ctx.reportProgress(pct) },
+    ),
 
   analytics: () => syncAnalytics(),
 
