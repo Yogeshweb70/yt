@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ToastProvider } from "@/components/ui";
+import { Button, ToastProvider, useToast } from "@/components/ui";
 import { AiVideoModal } from "./AiVideoModal";
 import { UploadVideoModal } from "./UploadVideoModal";
 import { ManualPublishModal } from "./ManualPublishModal";
@@ -46,16 +46,66 @@ const CARDS: CardDef[] = [
   },
 ];
 
+/** One-click, fully-automatic publish. Fires the AI pipeline with defaults
+ *  (auto topic, title, description, thumbnail; public; publish immediately) —
+ *  no modal, no form. Must render inside <ToastProvider>. */
+function AutoPublishButton() {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/pipeline/trigger", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          privacy: "public",
+          autoTitle: true,
+          autoDescription: true,
+          autoThumbnail: true,
+        }),
+      });
+      const data = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
+      if (data.ok) {
+        toast.success(
+          "Automatic video started",
+          `Job ${data.jobId?.slice(0, 8)} — AI will pick a topic, generate everything, and publish it.`,
+        );
+      } else {
+        toast.error("Couldn't start", data.error);
+      }
+    } catch (e) {
+      toast.error("Couldn't start", e instanceof Error ? e.message : "network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button onClick={run} loading={busy} className="shrink-0">
+      {!busy && <span aria-hidden>▶</span>}
+      {busy ? "Starting…" : "Publish a video now"}
+    </Button>
+  );
+}
+
 export function CreateVideoSection() {
   const [modal, setModal] = useState<ModalKey>(null);
 
   return (
     <ToastProvider>
       <section className="mb-8">
-        <h2 className="text-xl font-bold text-foreground">Create a Video</h2>
-        <p className="mt-1 text-sm text-muted">
-          Generate videos with AI, upload existing videos, or publish manually.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Create a Video</h2>
+            <p className="mt-1 text-sm text-muted">
+              Generate videos with AI, upload existing videos, or publish manually.
+            </p>
+          </div>
+          {/* Fully-automatic one-click publish. */}
+          <AutoPublishButton />
+        </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {CARDS.map((c) => (
