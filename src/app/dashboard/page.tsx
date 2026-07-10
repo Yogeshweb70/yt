@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getConnection } from "@/lib/youtube/connection";
 import type { YoutubeConnection } from "@/lib/supabase/types";
+import { TriggerButton } from "./TriggerButton";
 
 // Reads live connection state — must not be statically prerendered.
 export const dynamic = "force-dynamic";
@@ -71,6 +72,15 @@ export default async function Dashboard({
             Connection failed{reason ? `: ${reason}` : ""}.
           </p>
         )}
+      </section>
+
+      <section className="mb-8 rounded-xl border border-white/10 p-5">
+        <h2 className="mb-1 text-lg font-semibold">Create a video on demand</h2>
+        <p className="mb-3 text-sm text-muted">
+          Kick off one video right now. It runs alongside the scheduled pipeline —
+          nothing else pauses.
+        </p>
+        <TriggerButton />
       </section>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -13,7 +13,7 @@ type Handler = (payload: Record<string, unknown>) => Promise<unknown>;
  * Daily publish slots (UTC). The N-th video of the day is scheduled at the
  * N-th slot; extra manifests beyond the list fall back to no schedule.
  */
-const PUBLISH_SLOTS_UTC = ["00:00", "11:59", "20:00"];
+const PUBLISH_SLOTS_UTC = ["00:00", "11:59", "21:00"];
 
 /** ISO publish time for the given day + slot, rolled to the next day if it
  * has already passed (YouTube rejects scheduled times in the past). */
@@ -34,18 +34,20 @@ export const HANDLERS: Record<string, Handler> = {
   // Content: discover→rank→…→manifests, then fan out one autopilot job per manifest.
   content: async (p) => {
     const dayStamp = String(p.dayStamp ?? new Date().toISOString().slice(0, 10));
+    // On-demand ("publish now") runs skip slot scheduling and publish immediately.
+    const immediate = p.immediate === true;
     const result = await runPipeline(dayStamp);
     // Assign each of the day's videos to a distinct publish slot (UTC).
     for (const [i, m] of result.manifests.entries()) {
       const slot = PUBLISH_SLOTS_UTC[i];
-      const publishAt = slot ? slotPublishAt(dayStamp, slot) : null;
+      const publishAt = immediate ? null : slot ? slotPublishAt(dayStamp, slot) : null;
       await enqueue("autopilot", {
         payload: { manifestId: m.manifestId, publishAt },
         idempotencyKey: `autopilot:${m.manifestId}`,
         priority: 5,
       });
     }
-    return result;
+     return result;
   },
 
   // Render → optimize → publish (heavy: run on the ffmpeg/chromium worker).
