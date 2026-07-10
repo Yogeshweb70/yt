@@ -43,6 +43,9 @@ export const HANDLERS: Record<string, Handler> = {
     const dayStamp = String(p.dayStamp ?? new Date().toISOString().slice(0, 10));
     // On-demand ("publish now") runs skip slot scheduling and publish immediately.
     const immediate = p.immediate === true;
+    // Publishing controls forwarded from the "Create AI Video" form (privacy,
+    // schedule, category, playlist). Undefined for scheduled pipeline runs.
+    const publish = (p.publish as Record<string, unknown> | undefined) ?? {};
     await ctx.reportProgress(5, "Topic");
     const result = await runPipeline(dayStamp, (pct, stage) =>
       ctx.reportProgress(pct, stage),
@@ -51,9 +54,18 @@ export const HANDLERS: Record<string, Handler> = {
     // Assign each of the day's videos to a distinct publish slot (UTC).
     for (const [i, m] of result.manifests.entries()) {
       const slot = PUBLISH_SLOTS_UTC[i];
-      const publishAt = immediate ? null : slot ? slotPublishAt(dayStamp, slot) : null;
+      // Explicit user schedule (publish.publishAt) wins over slot assignment.
+      const publishAt =
+        (publish.publishAt as string | null | undefined) ??
+        (immediate ? null : slot ? slotPublishAt(dayStamp, slot) : null);
       await enqueue("autopilot", {
-        payload: { manifestId: m.manifestId, publishAt },
+        payload: {
+          manifestId: m.manifestId,
+          publishAt,
+          privacy: publish.privacy,
+          categoryId: publish.categoryId,
+          playlistId: publish.playlistId,
+        },
         idempotencyKey: `autopilot:${m.manifestId}`,
         priority: 5,
       });
@@ -65,8 +77,25 @@ export const HANDLERS: Record<string, Handler> = {
   autopilot: (p, ctx) =>
     runManifestToYouTube(
       String(p.manifestId),
-      { publishAt: (p.publishAt as string | null) ?? undefined },
+      {
+        publishAt: (p.publishAt as string | null) ?? undefined,
+        privacy: p.privacy as "public" | "private" | "unlisted" | undefined,
+        categoryId: p.categoryId as string | undefined,
+        playlistId: p.playlistId as string | undefined,
+      },
       { onStage: (_stage, pct) => ctx.reportProgress(pct) },
+    ),
+
+  // Publish an already-final, user-uploaded video (Cards 2 & 3). Reuses the
+  // manifest-based publish path via a minimal manifest created at upload time.
+  publish: (p) =>
+    import("@/services/publish").then(({ publishVideo }) =>
+      publishVideo(String(p.videoId), {
+        privacy: p.privacy as "public" | "private" | "unlisted" | undefined,
+        publishAt: (p.publishAt as string | null) ?? undefined,
+        categoryId: p.categoryId as string | undefined,
+        playlistId: p.playlistId as string | undefined,
+      }),
     ),
 
   analytics: () => syncAnalytics(),

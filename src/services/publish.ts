@@ -18,6 +18,8 @@ export interface PublishOptions {
   privacy?: "public" | "private" | "unlisted";
   publishAt?: string | null;
   playlistId?: string | null;
+  /** Overrides the env default YouTube category (e.g. user-picked in the UI). */
+  categoryId?: string;
 }
 
 interface VideoRow {
@@ -62,7 +64,7 @@ function buildMetadata(manifest: AssetManifest, opts: PublishOptions): VideoMeta
     title: seo.title || manifest.topic.title,
     description,
     tags,
-    categoryId: process.env.YOUTUBE_CATEGORY_ID ?? "24",
+    categoryId: opts.categoryId ?? process.env.YOUTUBE_CATEGORY_ID ?? "24",
     language: manifest.language,
     madeForKids: process.env.YOUTUBE_MADE_FOR_KIDS === "true",
     privacyStatus:

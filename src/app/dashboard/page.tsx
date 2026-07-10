@@ -1,6 +1,6 @@
 import { getConnection } from "@/lib/youtube/connection";
 import type { YoutubeConnection } from "@/lib/supabase/types";
-import { TriggerButton } from "./TriggerButton";
+import { CreateVideoSection } from "./create/CreateVideoSection";
 import { PipelineStatus } from "./PipelineStatus";
 
 // Reads live connection state — must not be statically prerendered.
@@ -74,14 +74,7 @@ export default async function Dashboard({
         )}
       </section>
 
-      <section className="mb-8 rounded-xl border border-white/10 p-5">
-        <h2 className="mb-1 text-lg font-semibold">Create a video on demand</h2>
-        <p className="mb-3 text-sm text-muted">
-          Kick off one video right now. It runs alongside the scheduled pipeline —
-          nothing else pauses.
-        </p>
-        <TriggerButton />
-      </section>
+      <CreateVideoSection />
 
       <section className="mb-8 rounded-xl border border-white/10 p-5">
         <h2 className="mb-3 text-lg font-semibold">Pipeline progress</h2>
